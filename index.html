@@ -1,0 +1,9 @@
+---
+layout: home
+---
+<h2>人工智能作业</h2>
+<ul>
+{% for post in site.posts %}
+<li><a href="{{ post.url }}">{{ post.title }}</a></li>
+{% endfor %}
+</ul>

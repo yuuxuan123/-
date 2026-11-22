@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>MLP交互式作业</title>
+<style>
+body{padding:20px;font-family:system-ui}
+.ctrl{margin-bottom:16px}
+label{margin-right:12px}
+canvas{border:1px solid #aaa;margin:4px}
+</style>
+</head>
+<body>
+<h2>MLP学习参数可视化</h2>
+<div class="ctrl">
+<label>学习率：<input type="range" id="lr" min="0.001" max="0.2" step="0.001" value="0.05">
+<span id="lrVal">0.05</span></label>
+<label>隐藏神经元：<input type="range" id="h" min="2" max="24" step="1" value="8">
+<span id="hVal">8</span></label>
+<button id="start">开始训练</button>
+<button id="reset">重置</button>
+</div>
+<div>
+<canvas id="lossCanvas" width="400" height="220"></canvas>
+<canvas id="fitCanvas" width="400" height="220"></canvas>
+</div>
+<script>
+class MLP {
+  constructor(inDim, hDim, outDim) {
+    this.w1 = Array.from({length:hDim}, ()=>[Math.random()*2-1]);
+    this.b1 = Array(hDim).fill(0);
+    this.w2 = Array.from({length:outDim}, ()=>Array(hDim).fill(Math.random()*2-1));
+    this.b2 = Array(outDim).fill(0);
+  }
+  relu(x) { return x>0?x:0; }
+  forward(x) {
+    const h = this.w1.map((w,i)=>this.relu(w[0]*x + this.b1[i]));
+    let out = 0;
+    for(let i=0;i<h.length;i++) out += this.w2[0][i]*h[i];
+    return out + this.b2[0];
+  }
+  train(x,y,lr) {
+    const h = this.w1.map((w,i)=>this.relu(w[0]*x + this.b1[i]));
+    const pred = this.forward(x);
+    const d = pred - y;
+    for(let i=0;i<h.length;i++) this.w2[0][i] -= lr * d * h[i];
+    this.b2[0] -= lr * d;
+    for(let i=0;i<h.length;i++){
+      const grad = d * this.w2[0][i] * (h[i]>0 ? 1 : 0);
+      this.w1[i][0] -= lr * grad * x;
+      this.b1[i] -= lr * grad;
+    }
+    return d*d;
+  }
+}
+const xs = [], ys = [];
+for(let i=0;i<100;i++){
+  const x = (i/100)*4 -2;
+  xs.push(x);
+  ys.push(Math.sin(3*x)+(Math.random()-0.5)*0.1);
+}
+let mlp;
+let lossList = [];
+const lossCtx = document.getElementById('lossCanvas').getContext('2d');
+const fitCtx = document.getElementById('fitCanvas').getContext('2d');
+const lrInput = document.getElementById('lr');
+const hInput = document.getElementById('h');
+const lrVal = document.getElementById('lrVal');
+const hVal = document.getElementById('hVal');
+lrInput.oninput = ()=>lrVal.innerText = lrInput.value;
+hInput.oninput = ()=>hVal.innerText = hInput.value;
+
+function drawLoss(){
+  const w=lossCtx.canvas.width,h=lossCtx.canvas.height;
+  lossCtx.clearRect(0,0,w,h);
+  lossCtx.beginPath();
+  lossCtx.strokeStyle="#222";
+  lossCtx.moveTo(0,h);
+  for(let i=0;i<lossList.length;i++){
+    const px = i/lossList.length*w;
+    const py = h - lossList[i]*100;
+    lossCtx.lineTo(px,py);
+  }
+  lossCtx.stroke();
+}
+function drawFit(){
+  const w=fitCtx.canvas.width,h=fitCtx.canvas.height;
+  fitCtx.clearRect(0,0,w,h);
+  fitCtx.fillStyle="#4488ff";
+  for(let i=0;i<xs.length;i++){
+    const px = (xs[i]+2)/4*w;
+    const py = h - (ys[i]+1.2)/2.4*h;
+    fitCtx.beginPath();
+    fitCtx.arc(px,py,3,0,Math.PI*2);
+    fitCtx.fill();
+  }
+  fitCtx.beginPath();
+  fitCtx.strokeStyle="#ff4444";
+  for(let i=0;i<w;i++){
+    const x = i/w*4 -2;
+    const y = mlp.forward(x);
+    const px = i;
+    const py = h - (y+1.2)/2.4*h;
+    if(i===0) fitCtx.moveTo(px,py);
+    else fitCtx.lineTo(px,py);
+  }
+  fitCtx.stroke();
+}
+let run = false;
+document.getElementById('start').onclick = ()=>{
+  if(run) return;
+  run=true;
+  mlp = new MLP(1,Number(hInput.value),1);
+  lossList=[];
+  function loop(){
+    let lossSum=0;
+    for(let i=0;i<xs.length;i++){
+      lossSum += mlp.train(xs[i],ys[i],Number(lrInput.value));
+    }
+    lossList.push(lossSum/xs.length);
+    drawLoss();
+    drawFit();
+    if(run) requestAnimationFrame(loop);
+  }
+  loop();
+}
+document.getElementById('reset').onclick = ()=>{
+  run=false;
+  lossList=[];
+  lossCtx.clearRect(0,0,lossCtx.canvas.width,lossCtx.canvas.height);
+  fitCtx.clearRect(0,0,fitCtx.canvas.width,fitCtx.canvas.height);
+}
+</script>
+</body>
+</html>

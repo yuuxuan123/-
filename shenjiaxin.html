@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Christmas Tree | Zico</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{overflow:hidden;background:#000}
+canvas{display:block}
+</style>
+</head>
+<body>
+<script src="https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.160.0/examples/js/controls/OrbitControls.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.160.0/examples/js/postprocessing/EffectComposer.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.160.0/examples/js/postprocessing/RenderPass.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.160.0/examples/js/postprocessing/ShaderPass.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.160.0/examples/js/shaders/CopyShader.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.160.0/examples/js/postprocessing/UnrealBloomPass.js"></script>
+<script>
+// ========== 和原Python代码参数对齐 ==========
+const GROUND_POINTS = 4000;
+const STAR_POINTS = 1200;
+const HEART_POINTS = 1000;
+const SNOW_POINTS = 400;
+const TREE_HEIGHT = 12.0;
+const CAM_DIST = 13;
+const CAM_HEIGHT = 6.0;
+const PITCH = -0.25;
+const TREE_POINTS = 5000;
+
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 200);
+const renderer = new THREE.WebGLRenderer({antialias:true});
+renderer.setSize(window.innerWidth, window.innerHeight);
+document.body.appendChild(renderer.domElement);
+
+const controls = new THREE.OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+controls.dampingFactor = 0.05;
+
+camera.position.set(0, CAM_HEIGHT, CAM_DIST);
+camera.lookAt(0, TREE_HEIGHT/2, 0);
+
+// 发光后处理
+const renderScene = new THREE.RenderPass(scene, camera);
+const bloomPass = new THREE.UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 1.2, 0.6, 0.75);
+const composer = new THREE.EffectComposer(renderer);
+composer.addPass(renderScene);
+composer.addPass(bloomPass);
+
+// 粒子材质
+function createPointMat(color){
+    return new THREE.PointsMaterial({color, size:0.18, transparent:true, opacity:0.9, sizeAttenuation:true, depthWrite:false})
+}
+
+// 生成圣诞树螺旋点（复刻原gen_tree_points）
+function genTreePoints(){
+    const pts = [];
+    const loops =9;
+    const spiral_n = Math.floor(TREE_POINTS * 0.7);
+    for(let i=0;i<spiral_n;i++){
+        let u = Math.random();
+        let h = Math.pow(u,1.9);
+        let y = TREE_HEIGHT * h +0.2;
+        let base_r = (1-h)*1.1 *3.2;
+        let theta = u * loops * Math.PI *2;
+        let r = base_r * Math.sqrt(Math.random());
+        let x = r * Math.cos(theta);
+        let z = r * Math.sin(theta);
+        pts.push(x,y,z)
+    }
+    // 填充剩余点
+    const fill_n = TREE_POINTS - spiral_n;
+    for(let i=0;i<fill_n;i++){
+        let h = Math.random();
+        let y = TREE_HEIGHT*h+0.2;
+        let base_r = (1-h)*1.1*3.2;
+        let r = base_r * Math.sqrt(Math.random());
+        let th = Math.random()*Math.PI*2;
+        let x = r*Math.cos(th);
+        let z = r*Math.sin(th);
+        pts.push(x,y,z)
+    }
+    return pts;
+}
+// 构建树粒子
+const treeGeo = new THREE.BufferGeometry().setFromPoints(genTreePoints().map(p=>new THREE.Vector3(p[0],p[1],p[2])));
+const tree = new THREE.Points(treeGeo, createPointMat(0x33ff66));
+scene.add(tree);
+
+// 星星
+const starGeo = new THREE.BufferGeometry();
+const starPos = [];
+for(let i=0;i<STAR_POINTS;i++){
+    const th = Math.random()*Math.PI*2;
+    const r = 15 + Math.random()*25;
+    const y = TREE_HEIGHT + Math.random()*12;
+    starPos.push(r*Math.cos(th), y, r*Math.sin(th))
+}
+starGeo.setAttribute('position',new THREE.Float32BufferAttribute(starPos,3));
+const stars = new THREE.Points(starGeo, createPointMat(0xffffcc));
+scene.add(stars);
+
+// 雪花
+const snowGeo = new THREE.BufferGeometry();
+const snowPos = [];
+for(let i=0;i<SNOW_POINTS;i++){
+    snowPos.push((Math.random()-0.5)*40, Math.random()*20, (Math.random()-0.5)*40)
+}
+snowGeo.setAttribute('position',new THREE.Float32BufferAttribute(snowPos,3));
+const snow = new THREE.Points(snowGeo, createPointMat(0xffffff));
+scene.add(snow);
+
+// 地面光点
+const groundGeo = new THREE.BufferGeometry();
+const groundPos = [];
+for(let i=0;i<GROUND_POINTS;i++){
+    const th = Math.random()*Math.PI*2;
+    const r = Math.random()*8;
+    groundPos.push(r*Math.cos(th), 0.05, r*Math.sin(th))
+}
+groundGeo.setAttribute('position',new THREE
